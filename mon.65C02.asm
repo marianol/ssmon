@@ -12,7 +12,7 @@
   .org $8000          ; fill first 8k since rom stats at $A000
   
   .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
-  .text "v1 mon.asm ACIA at $8010 "
+  .text "v1.01 mon.asm ACIA at $8010 "
   .text "simple serial monitor"
   NOP 
 
@@ -266,13 +266,13 @@ endMessage:
   .byte	$0D,$0A,">> Bye !!",$0D,$0A,$00
 
 ; IRQ and NMI handling
-nmi:
-irq:
+nmi_entry:
+irq_entry:
   rts
 
 ; 6502 Vectors 
   .segment "Vectors"
   .org $fffa
-  .word nmi       ; NMI
-  .word reset     ; RESET
-  .word irq       ; IRQ/BRK	
+  .word nmi_entry       ; NMI
+  .word reset           ; RESET
+  .word irq_entry       ; IRQ/BRK	
