@@ -1,4 +1,5 @@
 ; Simple Serial Monitor
+; Version 0.1
 ; (c) Mariano Luna
 ;
 ; Inspired on the Woz Mon for Apple 1
@@ -9,10 +10,11 @@
 
 
   .org $8000 ; fill first 8k since rom stats at $A000
-  .text "ROM starts at $A000 (2000) "
+  
+  .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
   .text "v1 mon.asm ACIA at $8010 "
   .text "simple serial monitor"
-  nop 
+  NOP 
 
 ; Herdware
 VIA1_PORTB   = $9000
@@ -25,6 +27,8 @@ ACIA_CONTROL = ACIA_BASE
 ACIA_DATA = ACIA_BASE + 8
 ACIA_TDRE = %00000010
 ACIA_RDRF = %00000001
+; 0/ Set No IRQ; 00/ no RTS; 101/ 8 bit,NONE,1 stop; 01/ x16 clock -> CLK 1.8432Mhz >> 115200bps
+ACIA_CONFIG = %00010101 
 
 ; Constants
 CR = $0D
@@ -32,77 +36,85 @@ LF = $0A
 
 ; zero page
 ZP_START1 = $00
-ZP_START2 = $0D
+BUFFER_START = $200
 
 ;.zeropage
   .org $0000
-  .org ZP_START2
+  .org BUFFER_START
 LINE_BUFFER:
   .storage $50
 
+
+; Main program code
   .segment "Code"
   .org $A000 ; ROM Start
 
 reset:
-  cld
-  ldx #$FF         ; init the stack
+; standard 6502 housekeeping
+  cld                 ; Clear Decimal
+  ldx #$FF            ; init the stack
   txs 
 
-  lda #%00000011 ; ACIA Master reset
+; Configure ACIA
+  lda #%00000011      ; ACIA Master reset
+  sta ACIA_CONTROL
+  lda #ACIA_CONFIG    ; 115200bps 8,N,1
   sta ACIA_CONTROL
 
-  lda #%00010101 ; 0 Set No IRQ, 00 no RTS, 101 8 bit,NONE,1 stop AND 01 x16 clock 115200bps @ 1.8432Mhz
-  sta ACIA_CONTROL
-  jsr delay
+  jsr delay           ; no reason but is here.
 
+
+; Top entry of the monitor
 start: 
-; Display startup message
   ldy #0
-showStartMsg:
+showStartMsg:         ; Display startup message
   lda	startupMessage,y
-  beq	waitForInput
-  jsr   tx_data
+  beq waitForInput    ; Messaage done jump and wait for user input
+  jsr tx_char
   iny
-  bne	showStartMsg
+  bne showStartMsg
 
-; Wait for line input
+; Wait for user to enter a line
 waitForInput:
   ldy #0
 waitForKeypress:
-  jsr rx_data
+  jsr rx_char
   bcc waitForKeypress
-  jsr tx_data
+  jsr tx_char
   sta LINE_BUFFER,y
   iny
-  cmp #LF			    ; compare with LF (enter will send CR+LF) 
+  cmp #LF			        ; compare with LF (enter will send CR+LF) 
   beq processLine
 
-  and #$DF              ; convert to uppercase
-  cmp #'Q'			    ; compare with [Q]uit
+  and #$DF            ; convert to uppercase
+  cmp #'Q'			      ; compare with [Q]uit
   beq endmsg
   jmp waitForKeypress
 
+; Process line in the LINE_BUFFER @todo
 processLine:
   ; process line
   lda #'*'
-  jsr tx_data
-  jmp waitForKeypress
+  jsr tx_char
+  jmp waitForInput
 
+
+; Emtry point for show end message and do nothing
 endmsg: 
-; Display end message
   ldy #0
-showEndMsg:
+showEndMsg: ; Display end message
   lda	endMessage,y
-  beq	donop
-  jsr   tx_data
+  beq donop
+  jsr tx_char
   iny
-  bne	showEndMsg
+  bne showEndMsg
 
 donop:
     nop
     jmp donop
 
-tx_data:
+; Transmit one the charcter stored in A
+tx_char:
   pha	            ; Store A for TX later	
 tx_wait:		
   lda ACIA_STATUS	; Load status
@@ -112,8 +124,10 @@ tx_wait:
   pla 
   sta ACIA_DATA     ; send char
   rts
-	
-rx_data:
+
+; Receives one character and store it in A
+; Carry is set if data was received and cleared otherwise
+rx_char:
   lda ACIA_STATUS   ; load status 
   and #ACIA_RDRF    ; Check for RX Data empty, a 1 here means FULL
   cmp #ACIA_RDRF
@@ -126,6 +140,7 @@ rx_noDataIn:
   clc               ; clear carry to signal no data RX
   rts
 
+; Handy delay routine with room for improvement
 delay:
   sta $40  ; save state
   lda #$00
@@ -141,13 +156,21 @@ delayloop:
   lda $40  ; restore state
   rts
 
+; Program Data
 startupMessage:
-  .byte	$0C,"## YAsixfive02 Monitor ##",$0D,$0A,"type help for commands",$0D,$0A,$00
+  .byte	$0C,"## YAsixfive02 SSMonitor ##",$0D,$0A,"type help for commands",$0D,$0A,$00
 
 endMessage:
-  .byte	$0D,$0A,">> Thanks !!",$0D,$0A,$00
+  .byte	$0D,$0A,">> Bye !!",$0D,$0A,$00
 
+; IRQ and NMI handling
+nmi:
+irq:
+  rts
+
+; 6502 Vectors 
+  .segment "Vectors"
   .org $fffa
-  .word reset ; NMI
+  .word nmi ; NMI
   .word reset ; RESET
-  .word reset ; IRQ/BRK	
+  .word irq ; IRQ/BRK	
