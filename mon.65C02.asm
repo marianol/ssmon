@@ -2,6 +2,7 @@
 ; (c) Mariano Luna
 ;
 ; Inspired on the Woz Mon for Apple 1
+; Target System: YAsixfive02
 
 .target "65C02"
 .encoding "ascii"
@@ -13,6 +14,7 @@
   .text "simple serial monitor"
   nop 
 
+; Herdware
 VIA1_PORTB   = $9000
 VIA1_PORTA   = $9001
 VIA1_DDRB    = $9002
@@ -23,6 +25,8 @@ ACIA_CONTROL = ACIA_BASE
 ACIA_DATA = ACIA_BASE + 8
 ACIA_TDRE = %00000010
 ACIA_RDRF = %00000001
+
+; Constants
 CR = $0D
 LF = $0A
 
