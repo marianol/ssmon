@@ -35,7 +35,7 @@ ACIA_CONFIG   = %00010101       ; 0/ Set No IRQ; 00/ no RTS; 101/ 8 bit,NONE,1 s
 CR = $0D
 LF = $0A
 BS = $08
-SPACE = $40
+SPACE = $20
 
 ; zero page
 ZP_START1 = $00
@@ -172,6 +172,7 @@ isAtoF:
   ; the Accumulator has a number form 0 to 6
   ; where A = 1 and F = 6 need to kill the 0
   ; do things to convert this thing
+  ; test q ,r,t,u,p,s,v,0..6 branch here
   lda #'L'
   jsr tx_char
   jsr tx_endline
