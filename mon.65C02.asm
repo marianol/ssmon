@@ -32,10 +32,12 @@ ACIA_RDRF     = %00000001
 ACIA_CONFIG   = %00010101       ; 0/ Set No IRQ; 00/ no RTS; 101/ 8 bit,NONE,1 stop; 01/ x16 clock -> CLK 1.8432Mhz >> 115200bps 
 
 ; Constants
-CR = $0D
-LF = $0A
-BS = $08
+CR    = $0D
+LF    = $0A
+BS    = $08
+DEL   = $7F 
 SPACE = $20
+ESC   = $1B
 
 ; zero page
 ZP_START1 = $00
