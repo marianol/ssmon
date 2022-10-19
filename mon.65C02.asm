@@ -127,11 +127,12 @@ displayMemory:
   beq printMemOutput
 
   ; is a number 0..9
-  eor #%10110000      ; '0' = 00110000 & '9' = 00111001
+  eor #%10110000      ; '0' = 00110000 (xor 1000 0000) & '9' = 00111001 (xor 1000 1001)
   cmp #$0A            ; is > 10
   bcc isNumber        ; is O..9 so jump 
 
   ; is A..F ('A' = 01000001)
+  ; t,T works 01010100 00010100
   and #$DF            ; convert to UPPERCASE
   asl
   asl
