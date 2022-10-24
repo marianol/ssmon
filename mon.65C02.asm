@@ -2,7 +2,7 @@
 ; Version 0.1
 ; (c) Mariano Luna
 ;
-; Inspired on the Woz Mon for Apple 1
+; Inspired on the SumerMon64 by  Jim Butterfield and Woz Mon for Apple 1 by Steve Wozniak
 ; Target System: YAsixfive02
 
 .target "65C02"
@@ -42,14 +42,21 @@ BUFFER_START = $0200
 
 ; zero page
 ZP_START1 = $00
+ZP_MEMFROM = $10
+ZP_MEMTO = $20
 
 
 ;.zeropage
   .org $0000
+  .org ZP_MEMFROM
+  .storage $2
+ZP_MEMTO:
+  .storage $2
   .org BUFFER_START
 LINE_BUFFER:          ; is this the right way?
   .storage $50
-
+CMD_ARG:
+  .sotorage $50
 
 ; Main program code
   .segment "Code"
@@ -107,47 +114,56 @@ processLine:
   ; process line
   lda #'p'  ; dummy to see I got here
   jsr tx_char
+  jsr tx_endline
 
   ldy #0              ; go to top of Line Buffer
-nextChar:
+  
+getChar:
   lda LINE_BUFFER,y   ; get the char from line buffer
   iny
   and #$DF            ; convert to uppercase % 1101 1111
 
   cmp #'M'			      ; [M]emory display > M from [to]
-  beq displayMemory
+  beq parseMemArgs
 
   cmp #'Q'			      ; compare with [Q]uit
   beq endmsg
 
   jmp abortLine       ; not M or Q and those are the only things I know do error out
 
-displayMemory:
+parseMemArgs:
+nextChar:
   lda LINE_BUFFER,y   ; get the char from line buffer
   iny
   ; is EOL (CR)
-  cmp #CR			        ; check of end of line
-  beq printMemOutput
+  cmp #CR			        
+  beq printMemOutput  ; we are done here..
+  cmp #CR			        
+  beq printMemOutput  ; we are done here..  
+; A < 40: A >= 30: its a number!
+; A < 47: A >= 41: letter ! 
+  cmp #$3A          ; comp with 9 ascii + 1
+  bcs nan           ; not a number may be letter
+  cmp #$30          ; compare with 0 (zero)
+  bcs isnum         ; is a number >=$30 and <$3A
+  jmp nextChar      ; no es nada fetch next
 
-  ; is a number 0..9
-  eor #%10110000      ; '0' = 00110000 (xor 1000 0000) & '9' = 00111001 (xor 1000 1001)
-  cmp #$0A            ; is > 10
-  bcc isNumber        ; is O..9 so jump 
+nan: ; is not a number check for A..F
+  and #$DF          ; convert to uppercase %1101 1111
+  cmp #$47          ; compare with F + 1
+  bcs nextChar      ; no es nada fetch next
+  cmp #$41          ; compare with A
+  bcs isAtoF        ; is A..F <$41 >$47
+  jmp nextChar      ; no es nada fetch next
 
-  ; is A..F ('A' = 01000001)
-  ; t,T works 01010100 00010100
-  ; test q ,r,t,u,p,s,v,0..6 branch here
-  ; 00010001
-  and #$DF            ; convert to UPPERCASE
-  asl
-  asl
-  clc                 ; info if >A carry should be set 
-  ror 
-  ror 
-  cmp #$07
-  bcc isAtoF          ; is A..F so jump 
+isnum:              ; A is 0..9
+  sta CMD_ARG, x
+  jmp nextChar 
 
-  jmp abortLine
+isAtoF:             ; A is A..F 
+  sta CMD_ARG, x
+  jmp nextChar 
+
 ; +-------------------------+---------------------+
 ; |     CMP                 |  N       Z       C  |
 ; +-------------------------+---------------------+
