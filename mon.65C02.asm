@@ -12,7 +12,7 @@
   .org $8000          ; fill first 8k since rom stats at $A000
   
   .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
-  .text "v1.01 mon.asm ACIA at $8010 "
+  .text "v1.02 mon.asm ACIA at $8010 "
   .text "simple serial monitor"
   NOP 
 
