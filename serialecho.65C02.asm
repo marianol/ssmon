@@ -5,6 +5,8 @@
 ; lets you enter a line and will repet it from the buffer
 ; Target System: YAsixfive02
 
+; TEST IN  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  A  B  C  D  E  F  CR LF
+; TEST OUT 30 31 32 33 34 35 36 37 38 39 61 62 63 64 65 66 41 42 43 44 45 46 0D 0A
 .target "65C02"
 .encoding "ascii"
 
@@ -12,8 +14,8 @@
   .org $8000          ; fill first 8k since rom stats at $A000
   
   .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
-  .text "v1.01 mon.asm ACIA at $8010 "
-  .text "simple serial monitor"
+  .text " serialecho.asm ACIA at $8010 "
+  .text " v0.1 serial echo"
   NOP 
 
 ; Herdware
@@ -145,12 +147,13 @@ endmsg:
   ldy #0
 showEndMsg: ; Display end message
   lda	endMessage,y
-  beq donop
+  beq allupper
   jsr tx_char
   iny
   bne showEndMsg
   jsr tx_endline 
   ; print last line in CAPS
+allupper:
   ldy #0              ; go to top of Line Buffer
 nextCaps:
   lda LINE_BUFFER,y   ; get the char from line buffer
@@ -160,7 +163,7 @@ nextCaps:
   jsr tx_char           ; echo char
 
   cmp #LF
-  beq donop      ; line ended > return
+  beq waitForInput      ; line ended > return
 
   jmp nextCaps       ; not M or Q and those are the only things I know do error out
 
