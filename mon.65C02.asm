@@ -38,10 +38,11 @@ BS    = $08
 DEL   = $7F 
 SPACE = $20
 ESC   = $1B
+BUFFER_START = $0200
 
 ; zero page
 ZP_START1 = $00
-BUFFER_START = $200
+
 
 ;.zeropage
   .org $0000
@@ -135,6 +136,8 @@ displayMemory:
 
   ; is A..F ('A' = 01000001)
   ; t,T works 01010100 00010100
+  ; test q ,r,t,u,p,s,v,0..6 branch here
+  ; 00010001
   and #$DF            ; convert to UPPERCASE
   asl
   asl
