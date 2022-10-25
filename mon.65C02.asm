@@ -39,11 +39,16 @@ DEL   = $7F
 SPACE = $20
 ESC   = $1B
 BUFFER_START = $0200
+ASCII_NUM_OFFSET = $30 ; check this 
+ASCII_LIT_OFFSET = $37 ; check this 
+
 
 ; zero page
 ZP_START1 = $00
 ZP_MEMFROM = $10
 ZP_MEMTO = $20
+LSD = $30
+MSD = $31
 
 
 ;.zeropage
@@ -56,7 +61,7 @@ ZP_MEMTO:
 LINE_BUFFER:          ; is this the right way?
   .storage $50
 CMD_ARG:
-  .sotorage $50
+  .storage $50
 
 ; Main program code
   .segment "Code"
@@ -99,13 +104,15 @@ waitForKeypress:
   bcc waitForKeypress
   jsr tx_char
 
-  cmp #SPACE          ; ignore spaces
-  beq waitForKeypress
+  ;cmp #SPACE          ; ignore spaces
+  ;beq waitForKeypress
 
   sta LINE_BUFFER,y
   iny                 ; @todo #1 check for buffle overflow
-  cmp #LF			        ; end of line? (enter will send CR+LF) 
+  cmp #CR			        ; end of line? (enter will send CR+LF) 
   beq processLine
+  cmp #BS          ; ignore spaces
+  dey
 
   jmp waitForKeypress ; keep going until we get a LF
 
@@ -125,6 +132,10 @@ getChar:
 
   cmp #'M'			      ; [M]emory display > M from [to]
   beq parseMemArgs
+  cmp #'W'			      ; [M]emory display > M from [to]
+  beq parseMemArgs
+  cmp #'R'			      ; [R]un from arg1
+  beq parseMemArgs
 
   cmp #'Q'			      ; compare with [Q]uit
   beq endmsg
@@ -132,14 +143,18 @@ getChar:
   jmp abortLine       ; not M or Q and those are the only things I know do error out
 
 parseMemArgs:
+  pha
+  ldx #0 ; init arg offset
 nextChar:
   lda LINE_BUFFER,y   ; get the char from line buffer
   iny
+  ; is end of ARG (SPACE)
+  cmp #SPACE		        
+  beq nextARG  ; process next ARG
   ; is EOL (CR)
   cmp #CR			        
-  beq printMemOutput  ; we are done here..
-  cmp #CR			        
-  beq printMemOutput  ; we are done here..  
+  beq lastARG  ; we are done here..
+ 
 ; A < 40: A >= 30: its a number!
 ; A < 47: A >= 41: letter ! 
   cmp #$3A          ; comp with 9 ascii + 1
@@ -157,12 +172,43 @@ nan: ; is not a number check for A..F
   jmp nextChar      ; no es nada fetch next
 
 isnum:              ; A is 0..9
-  sta CMD_ARG, x
+  ; convert num string to bin
+  sec
+  sbc #ASCII_NUM_OFFSET
+  sta CMD_ARG, x    ; store in ARG
   jmp nextChar 
 
 isAtoF:             ; A is A..F 
-  sta CMD_ARG, x
+  ; convert A..F string to bin
+  sec
+  sbc #ASCII_LIT_OFFSET
+  sta CMD_ARG, x    ; store in ARG
   jmp nextChar 
+
+nextARG:            ; finish processing one ARG
+  lda #SPACE        ;separate ARD with SPACE
+  sta CMD_ARG, x 
+  jmp parseMemArgs  ; keep processing
+
+lastARG:
+  lda #CR        ;separate ARD with SPACE
+  sta CMD_ARG, x 
+  jmp printMemOutput  ; keep processing 
+
+num2hex:
+  asl     ; move the digit to MSD 
+  asl
+  asl
+  asl
+  ldx #4  ; iterate 4 times
+hexshift:
+  asl
+  rol LSD
+  rol MSD
+  dex
+  bne hexshift    ; finish shifting?
+  jmp nextChar 
+
 
 ; +-------------------------+---------------------+
 ; |     CMP                 |  N       Z       C  |
@@ -176,30 +222,21 @@ printMemOutput:
   ; here I shoul print the memory from XX to YY
   lda #'O'
   jsr tx_char
+  lda #':'
+  jsr tx_char
+  pha   ; recover A pushed in parseArgs should contain the commaand
+  jsr tx_char
   jsr tx_endline
+
+  ldy #0
+loop:
+  lda CMD_ARG, y
+  iny
+  jsr tx_char
+  cmp #CR			        
+  bne loop 
 
   jmp waitForInput
-
-isNumber:
-  ; is a number save it somewhere
-  ; do things to convert this thing
-  lda #'N'
-  jsr tx_char
-  jsr tx_endline
-
-  jmp displayMemory
-
-isAtoF:
-  ; is A to F save it somewhere
-  ; the Accumulator has a number form 0 to 6
-  ; where A = 1 and F = 6 need to kill the 0
-  ; do things to convert this thing
-  ; test q ,r,t,u,p,s,v,0..6 branch here
-  lda #'L'
-  jsr tx_char
-  jsr tx_endline
-
-  jmp displayMemory
 
 abortLine:
   ; something is not right show error @todo #2 make this better
@@ -218,7 +255,7 @@ abortLine:
 endmsg: 
   ldy #0
 showEndMsg: ; Display end message
-  lda	endMessage,y
+  lda	CMD_ARG,y
   beq donop
   jsr tx_char
   iny
