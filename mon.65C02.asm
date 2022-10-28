@@ -12,7 +12,7 @@
   .org $8000          ; fill first 8k since rom stats at $A000
   
   .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
-  .text "v1.02 mon.asm ACIA at $8010 "
+  .text "v1.13 mon.asm ACIA at $8010 "
   .text "simple serial monitor"
   NOP 
 
@@ -55,7 +55,7 @@ MSD = $31
   .org $0000
   .org ZP_MEMFROM
   .storage $2
-ZP_MEMTO:
+  .org ZP_MEMTO
   .storage $2
   .org BUFFER_START
 LINE_BUFFER:          ; is this the right way?
@@ -109,8 +109,9 @@ waitForKeypress:
 
   sta LINE_BUFFER,y
   iny                 ; @todo #1 check for buffle overflow
-  cmp #CR			        ; end of line? (enter will send CR+LF) 
+  cmp #LF			        ; end of line? (enter will send CR+LF) 
   beq processLine
+
   cmp #BS          ; ignore spaces
   dey
 
@@ -121,15 +122,17 @@ processLine:
   ; process line
   lda #'p'  ; dummy to see I got here
   jsr tx_char
+  tya
+  jsr tx_char
   jsr tx_endline
 
   ldy #0              ; go to top of Line Buffer
-  
 getChar:
   lda LINE_BUFFER,y   ; get the char from line buffer
   iny
+    jsr tx_char
   and #$DF            ; convert to uppercase % 1101 1111
-
+    jsr tx_char
   cmp #'M'			      ; [M]emory display > M from [to]
   beq parseMemArgs
   cmp #'W'			      ; [M]emory display > M from [to]
@@ -141,6 +144,20 @@ getChar:
   beq endmsg
 
   jmp abortLine       ; not M or Q and those are the only things I know do error out
+; Emtry point for show end message and do nothing
+
+endmsg: 
+  ldy #0
+showEndMsg: ; Display end message
+  lda	CMD_ARG,y
+  beq donop
+  jsr tx_char
+  iny
+  bne showEndMsg
+
+donop:
+    nop
+    jmp donop
 
 parseMemArgs:
   pha
@@ -158,12 +175,12 @@ nextChar:
 ; A < 40: A >= 30: its a number!
 ; A < 47: A >= 41: letter ! 
   cmp #$3A          ; comp with 9 ascii + 1
-  bcs nan           ; not a number may be letter
+  bcs notnum           ; not a number may be letter
   cmp #$30          ; compare with 0 (zero)
   bcs isnum         ; is a number >=$30 and <$3A
   jmp nextChar      ; no es nada fetch next
 
-nan: ; is not a number check for A..F
+notnum: ; is not a number check for A..F
   and #$DF          ; convert to uppercase %1101 1111
   cmp #$47          ; compare with F + 1
   bcs nextChar      ; no es nada fetch next
@@ -229,12 +246,12 @@ printMemOutput:
   jsr tx_endline
 
   ldy #0
-loop:
+looper:
   lda CMD_ARG, y
   iny
   jsr tx_char
   cmp #CR			        
-  bne loop 
+  bne looper 
 
   jmp waitForInput
 
@@ -251,19 +268,7 @@ abortLine:
   jmp waitForInput
 
 
-; Emtry point for show end message and do nothing
-endmsg: 
-  ldy #0
-showEndMsg: ; Display end message
-  lda	CMD_ARG,y
-  beq donop
-  jsr tx_char
-  iny
-  bne showEndMsg
 
-donop:
-    nop
-    jmp donop
 
 ; Transmit one the charcter stored in A
 tx_char:
