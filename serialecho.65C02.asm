@@ -1,5 +1,5 @@
 ; Simple Serial Echo
-; Version 0.1
+; Version 0.2
 ; (c) Mariano Luna
 ;
 ; lets you enter a line and will repet it from the buffer
@@ -15,7 +15,7 @@
   
   .text "ROM starts at $A000 (2000) " ; This is a comment for reference when you load the BIN file
   .text " serialecho.asm ACIA at $8010 "
-  .text " v0.1 serial echo"
+  .text " v0.2 serial echo"
   NOP 
 
 ; Herdware
@@ -67,7 +67,7 @@ reset:
   jsr delay           ; no reason but is here.
 
 
-; Top entry of the monitor
+; Top entry of the echoer
 start: 
   ldy #0
 showStartMsg:         ; Display startup message
@@ -80,7 +80,7 @@ showStartMsg:         ; Display startup message
 ; Wait for user to enter a line
 waitForInput:
   jsr tx_endline      ; spit the prompt 
-  lda #'.'
+  lda #'>'
   jsr tx_char
 
   ldy #0              ; set y=0 to index the Line Buffer
@@ -88,9 +88,6 @@ waitForKeypress:
   jsr rx_char
   bcc waitForKeypress
   jsr tx_char
-
-  cmp #SPACE          ; ignore spaces
-  beq waitForKeypress
 
   sta LINE_BUFFER,y
   iny                 ; @todo #1 check for buffle overflow
@@ -102,7 +99,7 @@ waitForKeypress:
 ; Process line in the LINE_BUFFER
 processLine:
   ; process line
-  lda #'p'  ; show that I got here
+  lda #'P'  ; show that I got here
   jsr tx_char
   jsr tx_endline 
 
@@ -120,27 +117,6 @@ nextChar:
   beq endmsg
 
   jmp nextChar       ; try another one
-
-; +-------------------------+---------------------+
-; |     CMP                 |  N       Z       C  |
-; +-------------------------+---------------------+
-; | A, X, or Y  <  Memory   |  1       0       0  |
-; | A, X, or Y  =  Memory   |  0       1       1  |
-; | A, X, or Y  >  Memory   |  0       0       1  |
-; +-----------------------------------------------+
-
-abortLine:
-  ; something is not right show error @todo #2 make this better
-  lda #'*'
-  jsr tx_char
-  lda #'E'
-  jsr tx_char
-  lda #'R'
-  jsr tx_char
-  jsr tx_endline 
-
-  jmp waitForInput
-
 
 ; Emtry point for show end message and do nothing
 endmsg: 
